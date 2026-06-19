@@ -263,9 +263,9 @@ export function createApp(root: HTMLElement) {
             </label>
             <label class="toggle-row">
               <input type="checkbox" name="useProxy" ${settings.useProxy ? 'checked' : ''} />
-              <span>开发代理（npm run dev 时走 /api/llm）</span>
+              <span>API 代理（走 /api/llm，本地 dev 与 Vercel 部署均可用）</span>
             </label>
-            <p class="settings-tip">默认开启本地神算：按 skill.md 资料库 + 规则引擎输出分析。关闭并填入 DeepSeek Key 可切换大模型深度推理。</p>
+            <p class="settings-tip">默认开启本地神算：按 skill.md 资料库 + 规则引擎输出分析。关闭并填入 DeepSeek Key 可切换大模型深度推理。开启 API 代理时请勿用 file:// 打开页面；本地请 npm run dev，线上需已部署 vercel.json。</p>
             <button type="submit" class="btn btn-primary">保存设置</button>
           </form>
         </aside>

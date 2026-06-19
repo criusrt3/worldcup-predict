@@ -1,3 +1,4 @@
+import { formatApiError, resolveLlmEndpoint } from './apiEndpoint'
 import { buildChatSystemPrompt } from './chatContext'
 import { loadSkill } from './skillLoader'
 import { localChatReply } from './skillEngine'
@@ -9,9 +10,7 @@ async function callChatApi(
   system: string,
   messages: ChatMessage[],
 ): Promise<string> {
-  const endpoint = settings.useProxy
-    ? '/api/llm/v1/chat/completions'
-    : `${settings.baseUrl.replace(/\/$/, '')}/v1/chat/completions`
+  const endpoint = resolveLlmEndpoint(settings)
 
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -30,7 +29,7 @@ async function callChatApi(
 
   if (!res.ok) {
     const errText = await res.text()
-    throw new Error(`API 请求失败 (${res.status}): ${errText.slice(0, 200)}`)
+    throw new Error(formatApiError(res.status, errText, settings))
   }
 
   const data = (await res.json()) as { choices?: { message?: { content?: string } }[] }

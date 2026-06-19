@@ -1,3 +1,4 @@
+import { formatApiError, resolveLlmEndpoint } from './apiEndpoint'
 import type { ApiSettings, MatchStage, PredictionResult, TeamInfo } from './types'
 import { localPredict } from './skillEngine'
 import { loadSkill } from './skillLoader'
@@ -24,9 +25,7 @@ export async function predictMatch(
   }
 
   const skill = await loadSkill()
-  const endpoint = settings.useProxy
-    ? '/api/llm/v1/chat/completions'
-    : `${settings.baseUrl.replace(/\/$/, '')}/v1/chat/completions`
+  const endpoint = resolveLlmEndpoint(settings)
 
   const userPrompt = `请预测这场 2026 世界杯比赛:【${stage}】${teamA.name} vs ${teamB.name}。严格按约束文档的 JSON 格式输出，不要输出 JSON 以外的任何文字。`
 
@@ -48,7 +47,7 @@ export async function predictMatch(
 
   if (!res.ok) {
     const errText = await res.text()
-    throw new Error(`API 请求失败 (${res.status}): ${errText.slice(0, 200)}`)
+    throw new Error(formatApiError(res.status, errText, settings))
   }
 
   const data = (await res.json()) as {

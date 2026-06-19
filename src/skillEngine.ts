@@ -8,6 +8,7 @@ import {
   type LiveMatch,
   type LiveScoreboard,
 } from './liveScore'
+import { deriveMarkets } from './markets'
 import type { MatchStage, PredictionResult, TeamInfo } from './types'
 
 export interface TeamProfile {
@@ -21,6 +22,24 @@ let profilesCache: Map<string, TeamProfile> | null = null
 let intelCache: string[] = []
 
 const HOSTS = new Set(['墨西哥', '美国', '加拿大'])
+
+/** 取资料库摘要首句，并避免在括号中间截断 */
+export function clipSummaryClause(text: string, maxLen = 36): string {
+  let s = (text.split(/[。；\n]/)[0] ?? text).trim()
+  if (s.length > maxLen) {
+    s = s.slice(0, maxLen)
+    s = s.replace(/（[^）]*$/u, '').replace(/\([^)]*$/u, '').trim()
+  }
+  return s
+}
+
+/** 清理战术解读里多余或截断的括号 */
+export function cleanAnalysisText(text: string): string {
+  let s = text.trim()
+  s = s.replace(/^（[^）]{0,18}）\s*/u, '')
+  s = s.replace(/（[^）]*$/u, '').replace(/\([^)]*$/u, '').trim()
+  return s
+}
 
 const NAME_ALIASES: Record<string, string> = {
   刚果金: '刚果金',
@@ -170,8 +189,8 @@ function buildKeyFactors(
 ): string[] {
   const factors: string[] = []
   if (pA && pB) {
-    factors.push(`${teamA.name}：${pA.summary.split('。')[0].slice(0, 18)}`)
-    factors.push(`${teamB.name}：${pB.summary.split('。')[0].slice(0, 18)}`)
+    factors.push(`${teamA.name}：${clipSummaryClause(pA.summary, 42)}`)
+    factors.push(`${teamB.name}：${clipSummaryClause(pB.summary, 42)}`)
   } else {
     factors.push(`${TIER_LABELS[teamA.tier]} vs ${TIER_LABELS[teamB.tier]}`)
   }
@@ -180,7 +199,7 @@ function buildKeyFactors(
   if (HOSTS.has(leader.name)) factors.push('东道主情境加成')
   else if (leader.tier <= 2) factors.push('大赛经验与阵容厚度')
   else factors.push('冷门空间仍不可忽视')
-  return factors.slice(0, 5).map((f) => f.slice(0, 15))
+  return factors.slice(0, 5)
 }
 
 function buildAnalysis(
@@ -196,14 +215,18 @@ function buildAnalysis(
   const leadProb = leader.name === teamA.name ? winA : winB
   const lp = leader.name === teamA.name ? pA : pB
   const tp = leader.name === teamA.name ? pB : pA
-  const leadHint = lp?.summary.split('。')[0] ?? TIER_LABELS[leader.tier]
+  const leadHint = clipSummaryClause(lp?.summary ?? TIER_LABELS[leader.tier])
   const trailName = leader.name === teamA.name ? teamB.name : teamA.name
-  const trailHint = tp?.summary.split('。')[0] ?? `${TIER_LABELS[leader.name === teamA.name ? teamB.tier : teamA.tier]}成色`
+  const trailHint = clipSummaryClause(
+    tp?.summary ?? `${TIER_LABELS[leader.name === teamA.name ? teamB.tier : teamA.tier]}成色`,
+  )
   const stageNote =
     stage === '小组赛'
       ? '小组赛拿分压力与平局选项都要纳入。'
       : '淘汰赛节奏更保守，平局后加时点球需看大赛经验。'
-  return `【本地神算·Skill资料库】${stage} ${teamA.name} vs ${teamB.name}：${leadHint}；${trailName}方面${trailHint.slice(0, 40)}。综合近期状态(40%)、硬实力(30%)、交锋(15%)与情境(15%)，略倾向${leader.name}（约${leadProb}%）。${stageNote}仅供球迷讨论，非投注建议。`
+  return cleanAnalysisText(
+    `【本地神算·Skill资料库】${stage} ${teamA.name} vs ${teamB.name}：${leadHint}；${trailName}方面${trailHint}。综合近期状态（40%）、硬实力（30%）、交锋（15%）与情境（15%），略倾向 ${leader.name}（约 ${leadProb}%）。${stageNote}仅供球迷讨论，非投注建议。`,
+  )
 }
 
 export async function localPredict(
@@ -221,7 +244,7 @@ export async function localPredict(
   const [winA, draw, winB] = normalizeProbs(wA, wB, stage)
   const leader = winA >= winB ? teamA : teamB
 
-  return {
+  const result: PredictionResult = {
     teamA: { name: teamA.name, winProb: winA },
     draw,
     teamB: { name: teamB.name, winProb: winB },
@@ -234,6 +257,8 @@ export async function localPredict(
       { team: teamB.name, ...extractPlayer(pB?.summary ?? '', teamB.name) },
     ],
   }
+  result.markets = deriveMarkets(result, teamA, teamB)
+  return result
 }
 
 function findTeamsInText(text: string): TeamInfo[] {

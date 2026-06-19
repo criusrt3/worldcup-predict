@@ -61,13 +61,34 @@
   "analysis": "150字以内的综合分析，口吻像专业解说，给出明确倾向。",
   "playersToWatch": [
     { "team": "队名", "player": "球员名", "reason": "一句话理由" }
-  ]
+  ],
+  "markets": {
+    "upsetProb": 28,
+    "fullTimeResult": "主胜",
+    "fullTimeResultProb": 45,
+    "halfTimeResult": "平局",
+    "halfTimeResultProb": 42,
+    "handicap": "主 -1",
+    "handicapPick": "主胜",
+    "totalGoals": "2-3 球",
+    "bothTeamsScore": "是",
+    "bothTeamsScoreProb": 58,
+    "exactScore": "2-1"
+  }
 }
 ```
 
 - confidence 取值：高 / 中 / 低
-- keyFactors 3~5 条，每条 15 字以内
+- keyFactors 3~5 条，每条 30~45 字（含队名），写完整句意勿截断
 - playersToWatch 每队各 1 人，共 2 人
+- markets 为深度盘口预测（接入大模型时必须输出）：
+  - upsetProb：爆冷可能性 0~100（弱队赢球或逼平）
+  - fullTimeResult / halfTimeResult：主胜、平局、客胜
+  - handicap：让球盘口如「主 -1」「客 +1」「平手」
+  - handicapPick：让球推荐结果
+  - totalGoals：总进球区间如「2-3 球」
+  - bothTeamsScore：是 / 否
+  - exactScore：准确比分，与 predictedScore 一致
 
 ---
 

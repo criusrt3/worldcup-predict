@@ -14,6 +14,21 @@ export interface PlayerWatch {
   reason: string
 }
 
+export interface PredictionMarkets {
+  /** 爆冷可能性 0-100：弱队赢球或逼平的综合概率 */
+  upsetProb: number
+  fullTimeResult: '主胜' | '平局' | '客胜'
+  fullTimeResultProb: number
+  halfTimeResult: '主胜' | '平局' | '客胜'
+  halfTimeResultProb: number
+  handicap: string
+  handicapPick: string
+  totalGoals: string
+  bothTeamsScore: '是' | '否'
+  bothTeamsScoreProb: number
+  exactScore: string
+}
+
 export interface PredictionResult {
   teamA: { name: string; winProb: number }
   draw: number
@@ -23,6 +38,7 @@ export interface PredictionResult {
   keyFactors: string[]
   analysis: string
   playersToWatch: PlayerWatch[]
+  markets?: PredictionMarkets
 }
 
 export interface TeamInfo {

@@ -4,7 +4,8 @@ import { FEATURED_MATCHES, GROUPS, TIER_LABELS, findGroupByTeam, findTeam, group
 import { createLiveController, renderLiveSectionShell } from './livePanel'
 import { predictMatch } from './predict'
 import { clearHistory, loadHistory, loadSettings, loadTheme, loadView, pushHistory, saveSettings, saveTheme, saveView } from './storage'
-import type { AppState, AppTheme, AppView, HistoryEntry, MatchStage, PredictionResult, TeamInfo } from './types'
+import { MARKET_GLOSSARY, type MarketGlossaryKey } from './markets'
+import type { AppState, AppTheme, AppView, HistoryEntry, MatchStage, PredictionMarkets, PredictionResult, TeamInfo } from './types'
 import { STAGES } from './types'
 
 function uid() {
@@ -39,7 +40,82 @@ function renderProbBar(label: string, value: number, color: string, align: 'left
   `
 }
 
-function renderResult(result: PredictionResult, teamA: TeamInfo, teamB: TeamInfo) {
+function upsetLevel(prob: number): { label: string; cls: string } {
+  if (prob >= 45) return { label: '偏高', cls: 'upset-high' }
+  if (prob >= 28) return { label: '中等', cls: 'upset-mid' }
+  return { label: '偏低', cls: 'upset-low' }
+}
+
+function renderMarketTip(label: string, tipKey: MarketGlossaryKey, popupBelow = false) {
+  const tip = MARKET_GLOSSARY[tipKey]
+  return `
+    <span class="market-tip ${popupBelow ? 'market-tip--below' : ''}" tabindex="0">
+      <span class="market-tip-label">${escapeHtml(label)}</span>
+      <span class="market-tip-icon" aria-hidden="true">ⓘ</span>
+      <span class="market-tip-popup" role="tooltip">${escapeHtml(tip)}</span>
+    </span>
+  `
+}
+
+function renderMarketsModule(markets: PredictionMarkets, aiMode: boolean) {
+  const upset = upsetLevel(markets.upsetProb)
+  const rows: { tipKey: MarketGlossaryKey; label: string; value: string }[] = [
+    {
+      tipKey: 'fullTimeResult',
+      label: '胜平负',
+      value: `${markets.fullTimeResult} ${markets.fullTimeResultProb}%`,
+    },
+    {
+      tipKey: 'halfTimeResult',
+      label: '半场结果',
+      value: `${markets.halfTimeResult} ${markets.halfTimeResultProb}%`,
+    },
+    {
+      tipKey: 'handicap',
+      label: '让球',
+      value: `${markets.handicap} · ${markets.handicapPick}`,
+    },
+    { tipKey: 'totalGoals', label: '总进球数', value: markets.totalGoals },
+    {
+      tipKey: 'bothTeamsScore',
+      label: '双方均有进球',
+      value: `${markets.bothTeamsScore} ${markets.bothTeamsScoreProb}%`,
+    },
+    { tipKey: 'exactScore', label: '准确比分', value: markets.exactScore },
+  ]
+
+  return `
+    <section class="markets-panel">
+      <header class="markets-head">
+        <div>
+          <h3>深度盘口预测</h3>
+          <p>${aiMode ? '大模型综合输出' : '本地神算估算'} · 悬停 ⓘ 查看释义</p>
+        </div>
+        <div class="upset-badge ${upset.cls}">
+          ${renderMarketTip('爆冷可能', 'upset', true)}
+          <strong class="upset-value">${markets.upsetProb}%</strong>
+          <span class="upset-tier">${upset.label}</span>
+        </div>
+      </header>
+      <div class="upset-meter" aria-hidden="true">
+        <div class="upset-meter-fill ${upset.cls}" style="width:${markets.upsetProb}%"></div>
+      </div>
+      <ul class="markets-list">
+        ${rows
+          .map(
+            (r) => `
+          <li class="markets-row">
+            <span class="markets-row-label">${renderMarketTip(r.label, r.tipKey)}</span>
+            <span class="markets-row-value">${escapeHtml(r.value)}</span>
+          </li>`,
+          )
+          .join('')}
+      </ul>
+    </section>
+  `
+}
+
+function renderResult(result: PredictionResult, teamA: TeamInfo, teamB: TeamInfo, aiMode: boolean) {
   const [sA, sB] = result.predictedScore.split('-')
   return `
     <section class="result-card reveal">
@@ -72,6 +148,8 @@ function renderResult(result: PredictionResult, teamA: TeamInfo, teamB: TeamInfo
         ${renderProbBar('平局', result.draw, 'var(--draw-bar-color)', 'center')}
         ${renderProbBar(result.teamB.name, result.teamB.winProb, teamB.color, 'right')}
       </div>
+
+      ${result.markets ? renderMarketsModule(result.markets, aiMode) : ''}
 
       <div class="analysis-block">
         <h3>战术解读</h3>
@@ -431,7 +509,7 @@ export function createApp(root: HTMLElement) {
               </div>
             </div>
 
-            ${state.result && state.teamA && state.teamB ? renderResult(state.result, state.teamA, state.teamB) : `
+            ${state.result && state.teamA && state.teamB ? renderResult(state.result, state.teamA, state.teamB, !settings.demoMode && !!settings.apiKey.trim()) : `
               <div class="empty-arena">
                 <div class="trophy-icon">🏆</div>
                 <h3>选好对阵，一键神算</h3>

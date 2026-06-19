@@ -163,8 +163,14 @@ export function formatKickoffBeijing(iso: string): string {
   return `${formatBeijingDateTime(iso)} 北京时间`
 }
 
+/** 卡片中央开球时刻，仅 HH:mm */
 export function formatBeijingClock(iso: string): string {
-  return formatBeijingDateTime(iso)
+  return new Date(iso).toLocaleString('zh-CN', {
+    timeZone: BEIJING_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 export function formatBeijingNow(): string {

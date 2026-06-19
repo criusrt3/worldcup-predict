@@ -13,7 +13,11 @@ export function loadSettings(): ApiSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
     if (!raw) return { ...DEFAULT_SETTINGS }
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
+    const merged = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } as ApiSettings
+    if (merged.baseUrl === 'https://api.deepseek.com') {
+      merged.baseUrl = 'https://api.deepseek.com/v1'
+    }
+    return merged
   } catch {
     return { ...DEFAULT_SETTINGS }
   }

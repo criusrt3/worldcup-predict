@@ -1,3 +1,4 @@
+import { API_PROVIDER_PRESETS, validateApiSettings, type ApiProviderPreset } from './lib/chat-api-client'
 import { createChatController, renderChatShell } from './chatPanel'
 import { FEATURED_MATCHES, GROUPS, TIER_LABELS, findGroupByTeam, findTeam, groupFixtures } from './data'
 import { createLiveController, renderLiveSectionShell } from './livePanel'
@@ -249,23 +250,30 @@ export function createApp(root: HTMLElement) {
               <input type="checkbox" name="demoMode" ${settings.demoMode ? 'checked' : ''} />
               <span>本地神算（读取 skill.md，无需 API）</span>
             </label>
+            <div class="settings-presets">
+              <span class="settings-presets-label">快速预设</span>
+              ${Object.entries(API_PROVIDER_PRESETS)
+                .map(
+                  ([id, p]) => `
+                <button type="button" class="settings-preset-btn" data-api-preset="${id}" title="${escapeHtml(p.hint)}">
+                  ${escapeHtml(p.label)}
+                </button>`,
+                )
+                .join('')}
+            </div>
             <label>
-              <span>API Key</span>
-              <input type="password" name="apiKey" value="${escapeHtml(settings.apiKey)}" placeholder="sk-..." autocomplete="off" />
+              <span>API Key（密钥，勿填网址）</span>
+              <input type="password" name="apiKey" value="${escapeHtml(settings.apiKey)}" placeholder="sk-... 或对应平台密钥" autocomplete="off" />
             </label>
             <label>
-              <span>Base URL</span>
-              <input type="text" name="baseUrl" value="${escapeHtml(settings.baseUrl)}" />
+              <span>Base URL（OpenAI 兼容接口地址）</span>
+              <input type="text" name="baseUrl" value="${escapeHtml(settings.baseUrl)}" placeholder="https://api.deepseek.com/v1" />
             </label>
             <label>
               <span>Model</span>
-              <input type="text" name="model" value="${escapeHtml(settings.model)}" placeholder="deepseek-chat" />
+              <input type="text" name="model" value="${escapeHtml(settings.model)}" placeholder="deepseek-chat / gpt-4o-mini / gemini-2.0-flash" />
             </label>
-            <label class="toggle-row">
-              <input type="checkbox" name="useProxy" ${settings.useProxy ? 'checked' : ''} />
-              <span>API 代理（走 /api/llm，本地 dev 与 Vercel 部署均可用）</span>
-            </label>
-            <p class="settings-tip">默认开启本地神算：按 skill.md 资料库 + 规则引擎输出分析。关闭并填入 DeepSeek Key 可切换大模型深度推理。开启 API 代理时请勿用 file:// 打开页面；本地请 npm run dev，线上需已部署 vercel.json。</p>
+            <p class="settings-tip">关闭「本地神算」并填入 API Key 后，请求经服务端 <code>/api/chat</code> 转发（与 forxx-studio 相同），支持 DeepSeek、OpenAI、Gemini、硅基流动等 OpenAI 兼容接口。本地请 <code>npm run dev</code>，线上需 Vercel 部署。</p>
             <button type="submit" class="btn btn-primary">保存设置</button>
           </form>
         </aside>
@@ -521,15 +529,36 @@ export function createApp(root: HTMLElement) {
       e.preventDefault()
       const form = e.target as HTMLFormElement
       const data = new FormData(form)
-      settings = {
+      const next: typeof settings = {
         demoMode: data.get('demoMode') === 'on',
-        apiKey: String(data.get('apiKey') ?? ''),
-        baseUrl: String(data.get('baseUrl') ?? ''),
-        model: String(data.get('model') ?? 'deepseek-chat'),
-        useProxy: data.get('useProxy') === 'on',
+        apiKey: String(data.get('apiKey') ?? '').trim(),
+        baseUrl: String(data.get('baseUrl') ?? '').trim(),
+        model: String(data.get('model') ?? 'deepseek-chat').trim(),
       }
+      if (!next.demoMode) {
+        const keyError = validateApiSettings(next)
+        if (keyError) {
+          setState({ error: keyError, settingsOpen: true })
+          return
+        }
+      }
+      settings = next
       saveSettings(settings)
-      setState({ settingsOpen: false })
+      setState({ settingsOpen: false, error: null })
+    })
+
+    root.querySelectorAll('[data-api-preset]').forEach((el) => {
+      el.addEventListener('click', () => {
+        const id = (el as HTMLElement).dataset.apiPreset as ApiProviderPreset
+        const preset = API_PROVIDER_PRESETS[id]
+        if (!preset) return
+        const form = root.querySelector('#settings-form') as HTMLFormElement | null
+        if (!form) return
+        const baseUrl = form.elements.namedItem('baseUrl') as HTMLInputElement
+        const model = form.elements.namedItem('model') as HTMLInputElement
+        baseUrl.value = preset.baseUrl
+        model.value = preset.model
+      })
     })
 
     root.querySelector('#clear-history')?.addEventListener('click', () => {

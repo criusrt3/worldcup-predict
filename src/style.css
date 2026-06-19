@@ -1141,6 +1141,46 @@ a {
   border: 1px solid var(--border);
 }
 
+.settings-tip code {
+  font-size: 0.72rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--factor-bg);
+  border: 1px solid var(--border);
+}
+
+.settings-presets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-presets-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-right: 2px;
+}
+
+.settings-preset-btn {
+  border: 1px solid var(--border);
+  background: var(--btn-ghost-bg);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+
+.settings-preset-btn:hover {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
 .settings-form {
   display: grid;
   gap: 14px;
@@ -1263,6 +1303,10 @@ a {
 }
 
 @media (max-width: 640px) {
+  .app-shell {
+    padding: 20px 12px 32px;
+  }
+
   .top-bar {
     flex-direction: column;
     align-items: flex-start;
@@ -1272,18 +1316,105 @@ a {
     grid-template-columns: repeat(4, 1fr);
   }
 
+  .live-section {
+    padding: 12px;
+  }
+
+  .live-section-sub {
+    font-size: 0.72rem;
+    line-height: 1.45;
+  }
+
+  .view-panel--live .live-track,
+  .live-track--today {
+    grid-template-columns: 1fr;
+  }
+
+  .live-card {
+    padding: 10px;
+  }
+
   .live-matchup {
-    grid-template-columns: 1fr !important;
-    gap: 8px !important;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    gap: 6px;
+    align-items: start;
+  }
+
+  .live-side {
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    text-align: center;
+  }
+
+  .live-side--home,
+  .live-side--away {
+    justify-content: flex-start;
+  }
+
+  .live-side--away .live-side-info {
+    text-align: center;
+  }
+
+  .live-side--away .live-role-tag {
+    order: -1;
+  }
+
+  .live-role-tag {
+    width: 18px;
+    height: 18px;
+    font-size: 0.6rem;
+  }
+
+  .live-flag {
+    font-size: 1.25rem;
+  }
+
+  .live-logo {
+    width: 24px;
+    height: 24px;
+  }
+
+  .live-team-name {
+    font-size: 0.8rem;
+    line-height: 1.25;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .live-team-en {
+    display: none;
   }
 
   .live-center {
-    order: -1;
+    min-width: 48px;
+    max-width: 72px;
+    padding-top: 2px;
+  }
+
+  .live-scoreline {
+    font-size: 1.5rem;
+    margin-bottom: 2px;
+  }
+
+  .live-clock {
+    font-size: 1.1rem;
+  }
+
+  .live-period {
+    font-size: 0.62rem;
+  }
+
+  .live-score-hint {
+    display: none;
   }
 
   .live-card-foot {
     flex-direction: column;
     align-items: flex-start !important;
+    gap: 4px;
   }
 }
 

@@ -41,8 +41,9 @@ export interface ApiSettings {
   apiKey: string
   baseUrl: string
   model: string
-  useProxy: boolean
   demoMode: boolean
+  /** @deprecated 已统一走 /api/chat 服务端代理 */
+  useProxy?: boolean
 }
 
 export interface HistoryEntry {
@@ -85,8 +86,7 @@ export const STAGES: MatchStage[] = ['小组赛', '32强', '16强', '8强', '半
 
 export const DEFAULT_SETTINGS: ApiSettings = {
   apiKey: '',
-  baseUrl: 'https://api.deepseek.com',
+  baseUrl: 'https://api.deepseek.com/v1',
   model: 'deepseek-chat',
-  useProxy: true,
   demoMode: true,
 }

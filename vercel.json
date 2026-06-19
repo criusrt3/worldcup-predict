@@ -1,14 +1,15 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "framework": "vite",
   "rewrites": [
-    {
-      "source": "/api/llm/:path*",
-      "destination": "https://api.deepseek.com/:path*"
-    },
     {
       "source": "/api/espn/:path*",
       "destination": "https://site.api.espn.com/:path*"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }

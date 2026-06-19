@@ -27,9 +27,12 @@ npm run dev
 ## 接入真实 AI
 
 1. 右上角「设置」
-2. 关闭「演示模式」
-3. 填入 DeepSeek API Key
-4. 保持「开发代理」开启（`npm run dev` 时自动转发到 DeepSeek）
+2. 关闭「本地神算」
+3. 点「DeepSeek」等快速预设，或填写 Base URL + Model
+4. 填入对应平台的 API Key
+5. 本地用 `npm run dev` 启动（请求经 `/api/chat` 服务端转发，与 [forxx-studio](https://github.com/criusrt3/forxx-studio) 相同）
+
+支持 DeepSeek、OpenAI、Gemini、硅基流动等 OpenAI 兼容接口。线上部署到 Vercel 时会自动启用 `api/chat` 边缘函数。
 
 ## 技术栈
 

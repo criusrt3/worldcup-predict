@@ -1,4 +1,4 @@
-import { formatApiError, resolveLlmEndpoint } from './apiEndpoint'
+import { callLlmChat, validateApiSettings } from './lib/chat-api-client'
 import type { ApiSettings, MatchStage, PredictionResult, TeamInfo } from './types'
 import { localPredict } from './skillEngine'
 import { loadSkill } from './skillLoader'
@@ -24,36 +24,20 @@ export async function predictMatch(
     return localPredict(teamA, teamB, stage)
   }
 
-  const skill = await loadSkill()
-  const endpoint = resolveLlmEndpoint(settings)
+  const keyError = validateApiSettings(settings)
+  if (keyError) throw new Error(keyError)
 
+  const skill = await loadSkill()
   const userPrompt = `请预测这场 2026 世界杯比赛:【${stage}】${teamA.name} vs ${teamB.name}。严格按约束文档的 JSON 格式输出，不要输出 JSON 以外的任何文字。`
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${settings.apiKey.trim()}`,
-    },
-    body: JSON.stringify({
-      model: settings.model,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: skill },
-        { role: 'user', content: userPrompt },
-      ],
-    }),
-  })
+  const content = await callLlmChat(
+    settings,
+    [
+      { role: 'system', content: skill },
+      { role: 'user', content: userPrompt },
+    ],
+    { temperature: 0.75, responseFormat: 'json_object' },
+  )
 
-  if (!res.ok) {
-    const errText = await res.text()
-    throw new Error(formatApiError(res.status, errText, settings))
-  }
-
-  const data = (await res.json()) as {
-    choices?: { message?: { content?: string } }[]
-  }
-  const content = data.choices?.[0]?.message?.content
-  if (!content) throw new Error('API 返回为空')
   return parseJson(content)
 }

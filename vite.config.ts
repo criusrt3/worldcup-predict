@@ -1,11 +1,8 @@
 import { defineConfig } from 'vite'
+import type { PreviewServer, ViteDevServer } from 'vite'
+import { createChatApiMiddleware } from './src/server/chat-api'
 
-const proxy = {
-  '/api/llm': {
-    target: 'https://api.deepseek.com',
-    changeOrigin: true,
-    rewrite: (path: string) => path.replace(/^\/api\/llm/, ''),
-  },
+const espnProxy = {
   '/api/espn': {
     target: 'https://site.api.espn.com',
     changeOrigin: true,
@@ -13,13 +10,28 @@ const proxy = {
   },
 }
 
+function attachChatApi(server: ViteDevServer | PreviewServer) {
+  server.middlewares.use(createChatApiMiddleware())
+}
+
 export default defineConfig({
+  plugins: [
+    {
+      name: 'worldcup-chat-api',
+      configureServer(server) {
+        attachChatApi(server)
+      },
+      configurePreviewServer(server) {
+        attachChatApi(server)
+      },
+    },
+  ],
   server: {
     port: 5174,
-    proxy,
+    proxy: espnProxy,
   },
   preview: {
     port: 5174,
-    proxy,
+    proxy: espnProxy,
   },
 })

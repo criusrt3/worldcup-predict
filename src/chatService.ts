@@ -1,6 +1,7 @@
 import { callLlmChat, validateApiSettings } from './lib/chat-api-client'
+import { normalizeChatReply } from './chatReplyFormat'
 import { buildChatSystemPrompt } from './chatContext'
-import { loadSkill } from './skillLoader'
+import { loadSkillForChat } from './skillLoader'
 import { localChatReply } from './skillEngine'
 import type { LiveScoreboard } from './liveScore'
 import type { ApiSettings, ChatMessage } from './types'
@@ -26,10 +27,10 @@ export async function sendChatMessage(
   const keyError = validateApiSettings(settings)
   if (keyError) throw new Error(keyError)
 
-  const skill = await loadSkill()
+  const skill = await loadSkillForChat()
   const system = buildChatSystemPrompt(skill, liveBoard)
   const recent = history.slice(-10)
-  return callLlmChat(
+  const content = await callLlmChat(
     settings,
     [
       { role: 'system', content: system },
@@ -38,4 +39,5 @@ export async function sendChatMessage(
     ],
     { temperature: 0.85 },
   )
+  return normalizeChatReply(content)
 }

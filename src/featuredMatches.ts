@@ -67,7 +67,7 @@ function matchKey(a: string, b: string) {
 }
 
 function matchToFeatured(m: LiveMatch, board: LiveScoreboard): FeaturedMatchItem {
-  const group = findGroupByTeam(m.home.name) ?? m.group.replace(/\s*组/u, '').trim() || 'A'
+  const group = findGroupByTeam(m.home.name) ?? (m.group.replace(/\s*组/u, '').trim() || 'A')
   return {
     label: labelForMatch(m, board),
     group,

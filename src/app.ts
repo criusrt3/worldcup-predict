@@ -5,6 +5,7 @@ import { buildFeaturedMatches, getFeaturedFocusHeader, hasFocusFeatured } from '
 import type { LiveMatch } from './liveScore'
 import { createLiveController, renderLiveSectionShell } from './livePanel'
 import { predictMatch } from './predict'
+import { formatFifaRank, FIFA_WORLD_RANK, getCachedDossier, loadTeamDossiers } from './teamDossier'
 import { clearHistory, loadHistory, loadSettings, loadTheme, loadView, pushHistory, saveSettings, saveTheme, saveView } from './storage'
 import { MARKET_GLOSSARY, type MarketGlossaryKey } from './markets'
 import type { AppState, AppTheme, AppView, HistoryEntry, MatchStage, PredictionMarkets, PredictionResult, TeamInfo } from './types'
@@ -26,6 +27,75 @@ function confidenceClass(c: string) {
   if (c === '高') return 'conf-high'
   if (c === '中') return 'conf-mid'
   return 'conf-low'
+}
+
+function resolveFifaRank(name: string): number | undefined {
+  return getCachedDossier(name)?.fifaRank ?? FIFA_WORLD_RANK[name]
+}
+
+function renderDossierCol(team: TeamInfo, role: string): string {
+  const d = getCachedDossier(team.name)
+  const rank = resolveFifaRank(team.name)
+  if (!d) {
+    return `
+      <div class="dossier-col dossier-col--loading" style="--team-color:${team.color}">
+        <span class="dossier-role">${role}</span>
+        <div class="dossier-title">
+          <span class="dossier-flag">${team.flag}</span>
+          <strong>${escapeHtml(team.name)}</strong>
+          ${rank ? `<span class="dossier-rank">${formatFifaRank(rank)}</span>` : ''}
+        </div>
+        <p class="dossier-brief dossier-brief--muted">加载球员与战术资料…</p>
+      </div>`
+  }
+  return `
+    <div class="dossier-col" style="--team-color:${team.color}">
+      <div class="dossier-head">
+        <span class="dossier-role">${role}</span>
+        <span class="dossier-rank" title="FIFA 世界排名（2026年6月）">${formatFifaRank(d.fifaRank)}</span>
+      </div>
+      <div class="dossier-title">
+        <span class="dossier-flag">${team.flag}</span>
+        <strong>${escapeHtml(team.name)}</strong>
+      </div>
+      <span class="dossier-meta">${d.group} 组 · ${escapeHtml(d.section)} · ${escapeHtml(d.tierLabel)}</span>
+      <p class="dossier-brief">${escapeHtml(d.summaryBrief || d.tierLabel)}</p>
+      ${
+        d.players.length
+          ? `
+        <div class="dossier-players">
+          <span class="dossier-players-label">关键球员</span>
+          <ul class="player-chips">
+            ${d.players
+              .map((p) => {
+                const note = p.note ? (p.note.length > 20 ? `${p.note.slice(0, 20)}…` : p.note) : ''
+                return `
+              <li class="player-chip" ${p.note ? `title="${escapeHtml(p.note)}"` : ''}>
+                <strong>${escapeHtml(p.name)}</strong>
+                ${note ? `<span>${escapeHtml(note)}</span>` : ''}
+              </li>`
+              })
+              .join('')}
+          </ul>
+        </div>`
+          : ''
+      }
+    </div>`
+}
+
+function renderDossierPanel(teamA: TeamInfo | null, teamB: TeamInfo | null): string {
+  if (!teamA && !teamB) return ''
+  return `
+    <section class="dossier-panel">
+      <header class="dossier-panel-head">
+        <h3>球队资料</h3>
+        <span>FIFA 排名 · 关键球员 · Skill 资料库</span>
+      </header>
+      <div class="dossier-grid">
+        ${teamA ? renderDossierCol(teamA, '主队') : '<div class="dossier-col dossier-col--empty"><span class="dossier-role">主队</span><p>请选择主队</p></div>'}
+        ${teamB ? renderDossierCol(teamB, '客队') : '<div class="dossier-col dossier-col--empty"><span class="dossier-role">客队</span><p>请选择客队</p></div>'}
+      </div>
+    </section>`
 }
 
 function renderProbBar(label: string, value: number, color: string, align: 'left' | 'center' | 'right') {
@@ -119,6 +189,8 @@ function renderMarketsModule(markets: PredictionMarkets, aiMode: boolean) {
 
 function renderResult(result: PredictionResult, teamA: TeamInfo, teamB: TeamInfo, aiMode: boolean) {
   const [sA, sB] = result.predictedScore.split('-')
+  const rankA = resolveFifaRank(teamA.name)
+  const rankB = resolveFifaRank(teamB.name)
   return `
     <section class="result-card reveal">
       <div class="result-header">
@@ -130,6 +202,7 @@ function renderResult(result: PredictionResult, teamA: TeamInfo, teamB: TeamInfo
         <div class="score-team" style="--team-color:${teamA.color}">
           <span class="score-flag">${teamA.flag}</span>
           <span class="score-name">${escapeHtml(result.teamA.name)}</span>
+          ${rankA ? `<span class="score-rank">${formatFifaRank(rankA)}</span>` : ''}
         </div>
         <div class="score-center">
           <div class="score-digits">
@@ -142,6 +215,7 @@ function renderResult(result: PredictionResult, teamA: TeamInfo, teamB: TeamInfo
         <div class="score-team score-team-right" style="--team-color:${teamB.color}">
           <span class="score-flag">${teamB.flag}</span>
           <span class="score-name">${escapeHtml(result.teamB.name)}</span>
+          ${rankB ? `<span class="score-rank">${formatFifaRank(rankB)}</span>` : ''}
         </div>
       </div>
 
@@ -483,11 +557,13 @@ export function createApp(root: HTMLElement) {
                 .map((team) => {
                   const selected = state.teamA?.name === team.name || state.teamB?.name === team.name
                   const slot = state.teamA?.name === team.name ? 'A' : state.teamB?.name === team.name ? 'B' : ''
+                  const rank = resolveFifaRank(team.name)
                   return `
                   <button type="button" class="team-card ${selected ? 'selected' : ''}" data-team="${team.name}" style="--team-color:${team.color}">
                     <span class="team-flag">${team.flag}</span>
                     <span class="team-name">${escapeHtml(team.name)}</span>
                     <span class="team-tier">${TIER_LABELS[team.tier]}</span>
+                    ${rank ? `<span class="team-rank" title="FIFA 世界排名">${formatFifaRank(rank)}</span>` : ''}
                     ${slot ? `<span class="team-slot">${slot}</span>` : ''}
                   </button>`
                 })
@@ -518,16 +594,18 @@ export function createApp(root: HTMLElement) {
 
               <div class="versus-stage">
                 <div class="versus-slot ${state.teamA ? 'filled' : ''}" style="${state.teamA ? `--team-color:${state.teamA.color}` : ''}">
-                  ${state.teamA ? `<span class="v-flag">${state.teamA.flag}</span><span class="v-name">${escapeHtml(state.teamA.name)}</span>` : '<span class="v-placeholder">点击左侧选主队</span>'}
+                  ${state.teamA ? `<span class="v-flag">${state.teamA.flag}</span><span class="v-name">${escapeHtml(state.teamA.name)}</span>${resolveFifaRank(state.teamA.name) ? `<span class="v-rank">${formatFifaRank(resolveFifaRank(state.teamA.name)!)}</span>` : ''}` : '<span class="v-placeholder">点击左侧选主队</span>'}
                 </div>
                 <div class="versus-core">
                   <span class="vs-ring">VS</span>
                   ${state.loading ? '<div class="loader"></div>' : ''}
                 </div>
                 <div class="versus-slot ${state.teamB ? 'filled' : ''}" style="${state.teamB ? `--team-color:${state.teamB.color}` : ''}">
-                  ${state.teamB ? `<span class="v-flag">${state.teamB.flag}</span><span class="v-name">${escapeHtml(state.teamB.name)}</span>` : '<span class="v-placeholder">点击左侧选客队</span>'}
+                  ${state.teamB ? `<span class="v-flag">${state.teamB.flag}</span><span class="v-name">${escapeHtml(state.teamB.name)}</span>${resolveFifaRank(state.teamB.name) ? `<span class="v-rank">${formatFifaRank(resolveFifaRank(state.teamB.name)!)}</span>` : ''}` : '<span class="v-placeholder">点击左侧选客队</span>'}
                 </div>
               </div>
+
+              ${renderDossierPanel(state.teamA, state.teamB)}
 
               ${state.error ? `<p class="error-banner">${escapeHtml(state.error)}</p>` : ''}
 
@@ -704,4 +782,7 @@ export function createApp(root: HTMLElement) {
 
   render()
   liveController.start()
+  loadTeamDossiers().then(() => {
+    if (state.view === 'predict') render()
+  })
 }

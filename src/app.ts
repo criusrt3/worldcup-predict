@@ -1,6 +1,7 @@
 import { API_PROVIDER_PRESETS, validateApiSettings, type ApiProviderPreset } from './lib/chat-api-client'
 import { createChatController, renderChatShell } from './chatPanel'
-import { FEATURED_MATCHES, GROUPS, TIER_LABELS, findGroupByTeam, findTeam, groupFixtures } from './data'
+import { GROUPS, TIER_LABELS, findGroupByTeam, findTeam, groupFixtures } from './data'
+import { buildFeaturedMatches, hasTodayFeatured } from './featuredMatches'
 import type { LiveMatch } from './liveScore'
 import { createLiveController, renderLiveSectionShell } from './livePanel'
 import { predictMatch } from './predict'
@@ -219,7 +220,8 @@ export function createApp(root: HTMLElement) {
 
   applyTheme(theme)
 
-  const liveController = createLiveController((homeCn, awayCn, match?: LiveMatch) => {
+  const liveController = createLiveController(
+    (homeCn, awayCn, match?: LiveMatch) => {
     const teamA = findTeam(homeCn)
     const teamB = findTeam(awayCn)
     if (!teamA || !teamB) return
@@ -234,7 +236,11 @@ export function createApp(root: HTMLElement) {
     })
     saveView('predict')
     document.querySelector('.arena-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  })
+  },
+    () => {
+      if (state.view === 'predict') render()
+    },
+  )
 
   const chatController = createChatController(
     () => settings,
@@ -390,6 +396,9 @@ export function createApp(root: HTMLElement) {
   function render() {
     const group = GROUPS.find((g) => g.id === state.activeGroup)!
     const fixtures = groupFixtures(state.activeGroup)
+    const liveBoard = liveController.getBoard()
+    const featuredMatches = buildFeaturedMatches(liveBoard)
+    const todayFeatured = hasTodayFeatured(liveBoard)
 
     root.innerHTML = `
       <div class="stadium-bg">
@@ -438,14 +447,23 @@ export function createApp(root: HTMLElement) {
         ${state.view === 'live' ? renderLiveSectionShell() : ''}
         ${state.view === 'chat' ? renderChatShell() : ''}
         ${state.view === 'predict' ? `
-        <section class="featured-row">
-          ${FEATURED_MATCHES.map(
-            (m) => `
-            <button type="button" class="featured-chip" data-featured="${m.group}|${m.teamA}|${m.teamB}|${m.stage}">
+        <section class="featured-section">
+          <header class="featured-head">
+            <span class="featured-head-title">${todayFeatured ? '📅 今日焦点' : '⚽ 精选对阵'}</span>
+            ${todayFeatured ? '<span class="featured-head-sub">根据今日赛程自动更新</span>' : ''}
+          </header>
+          <div class="featured-row">
+          ${featuredMatches
+            .map(
+              (m) => `
+            <button type="button" class="featured-chip ${m.status === 'live' ? 'featured-chip--live' : ''}" data-featured="${m.group}|${m.teamA}|${m.teamB}|${m.stage}">
               <span class="featured-label">${escapeHtml(m.label)}</span>
-              <span>${escapeHtml(m.teamA)} vs ${escapeHtml(m.teamB)}</span>
+              <span class="featured-match">${escapeHtml(m.teamA)} vs ${escapeHtml(m.teamB)}</span>
+              ${m.timeHint ? `<span class="featured-time">${escapeHtml(m.timeHint)}</span>` : ''}
             </button>`,
-          ).join('')}
+            )
+            .join('')}
+          </div>
         </section>
 
         <div class="layout-grid">
@@ -525,7 +543,7 @@ export function createApp(root: HTMLElement) {
               <div class="empty-arena">
                 <div class="trophy-icon">🏆</div>
                 <h3>选好对阵，一键神算</h3>
-                <p>从 12 个小组挑选两支球队，或点上方「揭幕战」快捷入口。预测结果将以比分牌 + 胜平负概率可视化呈现。</p>
+                <p>从 12 个小组挑选两支球队，或点上方${todayFeatured ? '「今日焦点」' : '快捷入口'}一键预测。结果将以比分牌 + 胜平负概率可视化呈现。</p>
               </div>
             `}
           </main>

@@ -457,12 +457,34 @@ a {
   color: var(--mode-live-text);
 }
 
+.featured-section {
+  margin-bottom: 18px;
+}
+
+.featured-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.featured-head-title {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.featured-head-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
 .featured-row {
   display: flex;
   gap: 10px;
   overflow-x: auto;
   padding-bottom: 8px;
-  margin-bottom: 18px;
   scrollbar-width: thin;
 }
 
@@ -472,14 +494,20 @@ a {
   background: var(--bg-panel);
   backdrop-filter: blur(12px);
   color: var(--text);
-  border-radius: 999px;
-  padding: 8px 16px;
+  border-radius: 14px;
+  padding: 8px 14px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
+  min-width: 140px;
   transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.featured-chip--live {
+  border-color: rgba(239, 68, 68, 0.45);
+  box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.12);
 }
 
 .featured-chip:hover {
@@ -493,6 +521,25 @@ a {
   color: var(--accent);
   font-weight: 700;
   letter-spacing: 0.08em;
+}
+
+.featured-match {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.featured-time {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+.featured-chip--live .featured-time {
+  color: #f87171;
+  font-weight: 700;
+}
+
+html[data-theme='day'] .featured-chip--live .featured-time {
+  color: #b91c1c;
 }
 
 .layout-grid {
@@ -1969,6 +2016,69 @@ a {
   color: var(--text-muted);
 }
 
+/* 主视图标签：今日 / 全部 / 积分榜 */
+.live-section-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--btn-ghost-bg);
+  border: 1px solid var(--border);
+}
+
+.live-section-tab {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.live-section-tab.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.live-tab-panel {
+  min-height: 80px;
+}
+
+.live-tab-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.standings-panel--tab {
+  margin-bottom: 0;
+  padding: 12px 14px;
+}
+
+.standings-panel--tab .standings-head {
+  margin-bottom: 10px;
+}
+
+.standings-panel--tab .standings-head p {
+  margin: 0;
+}
+
 .live-filters {
   display: flex;
   flex-wrap: wrap;
@@ -2792,6 +2902,19 @@ html[data-theme='day'] .live-advance-note {
 }
 
 @media (max-width: 640px) {
+  .live-section-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .live-section-tab {
+    flex: 1 0 auto;
+    min-width: 88px;
+    padding: 8px 10px;
+    font-size: 0.78rem;
+  }
+
   .standings-grid {
     grid-template-columns: 1fr;
   }

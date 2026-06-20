@@ -18,8 +18,8 @@ import {
   QUAL_CLASS,
   type TournamentContext,
 } from './groupStandings'
-import { loadLiveFilter, loadLiveStageFilter, saveLiveFilter, saveLiveStageFilter } from './storage'
-import type { LiveFilter } from './types'
+import { loadLiveFilter, loadLiveSectionTab, loadLiveStageFilter, saveLiveFilter, saveLiveSectionTab, saveLiveStageFilter } from './storage'
+import type { LiveFilter, LiveSectionTab } from './types'
 
 function escapeHtml(s: string) {
   return s
@@ -139,6 +139,30 @@ function renderLiveCard(match: LiveMatch, compact = false, emphasizeStage = fals
   `
 }
 
+function renderSectionTabs(active: LiveSectionTab, board: LiveScoreboard | null, ctx: TournamentContext) {
+  const todayCount = board ? filterTodayMatches(board.matches).length : 0
+  const groupCount = ctx.groups.filter((g) => g.finishedMatches > 0).length
+  const tabs: { id: LiveSectionTab; label: string; count?: number }[] = [
+    { id: 'today', label: '今日赛程', count: todayCount || undefined },
+    { id: 'schedule', label: '全部赛程', count: board?.totalCount },
+    { id: 'standings', label: '积分榜', count: groupCount || undefined },
+  ]
+
+  return `
+    <div class="live-section-tabs" role="tablist" aria-label="赛程视图">
+      ${tabs
+        .map(
+          (t) => `
+        <button type="button" class="live-section-tab ${active === t.id ? 'active' : ''}" data-live-section-tab="${t.id}" role="tab" aria-selected="${active === t.id}">
+          ${escapeHtml(t.label)}
+          ${t.count != null ? `<span class="live-filter-count">${t.count}</span>` : ''}
+        </button>`,
+        )
+        .join('')}
+    </div>
+  `
+}
+
 function renderFilterTabs(active: LiveFilter, board: LiveScoreboard | null) {
   const tabs: { id: LiveFilter; label: string; count?: number }[] = [
     { id: 'all', label: '全部', count: board?.totalCount },
@@ -191,7 +215,7 @@ function renderStageFilters(active: StageFilter, finishedMatches: LiveMatch[]) {
 
 function renderStandingsSection(ctx: TournamentContext): string {
   const activeGroups = ctx.groups.filter((g) => g.finishedMatches > 0)
-  if (!activeGroups.length) return ''
+  if (!activeGroups.length && !ctx.hasKnockoutResults) return ''
 
   const tables = activeGroups
     .map(
@@ -255,16 +279,13 @@ function renderStandingsSection(ctx: TournamentContext): string {
       : ''
 
   return `
-    <section class="standings-panel">
+    <div class="standings-panel standings-panel--tab">
       <header class="standings-head">
-        <div>
-          <h3>📊 小组积分榜 · 出线形势</h3>
-          <p>前两名直接晋级 32 强 · 8 个最佳第三名同样出线 · 悬停标签查看形势说明</p>
-        </div>
+        <p>前两名直接晋级 32 强 · 8 个最佳第三名同样出线 · 悬停标签查看形势说明</p>
       </header>
       <div class="standings-grid">${tables}</div>
       ${knockoutHtml}
-    </section>
+    </div>
   `
 }
 
@@ -314,7 +335,7 @@ function renderGroupedFinished(matches: LiveMatch[], stageFilter: StageFilter, c
   `
 }
 
-function renderTodaySection(allMatches: LiveMatch[], filter: LiveFilter, ctx: TournamentContext): string {
+function renderTodayPanel(allMatches: LiveMatch[], filter: LiveFilter, ctx: TournamentContext): string {
   const todayLabel = new Date().toLocaleDateString('zh-CN', {
     timeZone: 'Asia/Shanghai',
     year: 'numeric',
@@ -328,29 +349,80 @@ function renderTodaySection(allMatches: LiveMatch[], filter: LiveFilter, ctx: To
       const next = sortTodayMatches(filterTodayMatches(allMatches)).find((m) => m.status === 'scheduled')
       if (next) {
         return `
-          <section class="live-today live-today--hint">
+          <div class="live-today live-today--hint">
             <p>当前无进行中比赛 · 下一场 <strong>${escapeHtml(next.home.name)} vs ${escapeHtml(next.away.name)}</strong> · ${escapeHtml(formatKickoffBeijing(next.startTimeIso))}</p>
-          </section>
+          </div>
         `
       }
     }
-    return ''
+    return `
+      <div class="live-empty live-empty--inline">
+        <p>今日暂无赛程</p>
+        <span>${escapeHtml(todayLabel)} · 北京时间 · 可切到「全部赛程」查看</span>
+      </div>
+    `
   }
 
   return `
-    <section class="live-today">
-      <header class="live-today-head">
-        <div>
-          <h3>📅 今日赛程</h3>
-          <p>${escapeHtml(todayLabel)} · 北京时间</p>
-        </div>
-        <span class="live-today-count">${today.length} 场</span>
-      </header>
-      <div class="live-track live-track--today">
-        ${today.map((m) => renderLiveCard(m, false, false, ctx)).join('')}
-      </div>
-    </section>
+    <div class="live-tab-meta">
+      <span>${escapeHtml(todayLabel)} · 北京时间</span>
+      <span class="live-today-count">${today.length} 场</span>
+    </div>
+    <div class="live-track live-track--today">
+      ${today.map((m) => renderLiveCard(m, false, false, ctx)).join('')}
+    </div>
   `
+}
+
+function renderSchedulePanel(
+  board: LiveScoreboard,
+  filter: LiveFilter,
+  stageFilter: StageFilter,
+  ctx: TournamentContext,
+): string {
+  const filtered = filterMatches(board.matches, filter)
+
+  if (filter === 'finished') {
+    const finishedAll = board.matches.filter((m) => m.status === 'finished')
+    if (!filtered.length) {
+      return `
+        ${renderStageFilters(stageFilter, finishedAll)}
+        <div class="live-empty live-empty--inline"><p>暂无已完赛比赛</p></div>
+      `
+    }
+    return renderGroupedFinished(filtered, stageFilter, ctx)
+  }
+
+  if (!filtered.length) {
+    return `
+      <div class="live-empty live-empty--inline">
+        <p>当前筛选下暂无比赛</p>
+        <span>试试切换「全部」或其他状态</span>
+      </div>
+    `
+  }
+
+  return `
+    <div class="live-tab-meta">
+      <span>共 ${filtered.length} 场</span>
+    </div>
+    <div class="live-track">
+      ${filtered.map((m) => renderLiveCard(m, false, false, ctx)).join('')}
+    </div>
+  `
+}
+
+function renderStandingsPanel(ctx: TournamentContext): string {
+  const activeGroups = ctx.groups.filter((g) => g.finishedMatches > 0)
+  if (!activeGroups.length && !ctx.hasKnockoutResults) {
+    return `
+      <div class="live-empty live-empty--inline">
+        <p>暂无积分榜数据</p>
+        <span>小组赛开赛后自动更新 · 48 队 12 组</span>
+      </div>
+    `
+  }
+  return renderStandingsSection(ctx)
 }
 
 function renderLivePanelContent(
@@ -359,6 +431,7 @@ function renderLivePanelContent(
   loading: boolean,
   filter: LiveFilter,
   stageFilter: StageFilter,
+  sectionTab: LiveSectionTab,
   ctx: TournamentContext,
 ) {
   if (loading && !board) {
@@ -388,58 +461,23 @@ function renderLivePanelContent(
     `
   }
 
-  const filtered = filterMatches(board.matches, filter)
-  const filtersHtml = renderFilterTabs(filter, board)
-  const standingsHtml = ctx.hasGroupResults || ctx.hasKnockoutResults ? renderStandingsSection(ctx) : ''
+  const sectionTabsHtml = renderSectionTabs(sectionTab, board, ctx)
+  const showStatusFilters = sectionTab !== 'standings'
+  const filtersHtml = showStatusFilters ? renderFilterTabs(filter, board) : ''
 
-  if (filtered.length === 0) {
-    if (filter === 'live') {
-      const todayHtml = renderTodaySection(board.matches, filter, ctx)
-      if (todayHtml) return `${filtersHtml}${standingsHtml}${todayHtml}`
-    }
-    return `
-      ${filtersHtml}
-      ${standingsHtml}
-      <div class="live-empty live-empty--inline">
-        <p>当前筛选下暂无比赛</p>
-        <span>试试切换「全部」或「未开始」</span>
-      </div>
-    `
-  }
-
-  if (filter === 'finished') {
-    return `${filtersHtml}${standingsHtml}${renderGroupedFinished(filtered, stageFilter, ctx)}`
-  }
-
-  const showToday = filter === 'all' || filter === 'scheduled'
-  const todayHtml = showToday ? renderTodaySection(board.matches, filter, ctx) : ''
-  const todayIds = showToday ? new Set(filterTodayMatches(board.matches).map((m) => m.id)) : null
-  const rest = todayIds ? filtered.filter((m) => !todayIds.has(m.id)) : filtered
-
-  if (!rest.length && todayHtml) {
-    return `${filtersHtml}${standingsHtml}${todayHtml}`
-  }
-
-  if (!rest.length) {
-    return `
-      ${filtersHtml}
-      ${standingsHtml}
-      ${todayHtml}
-      <div class="live-empty live-empty--inline">
-        <p>当前筛选下暂无比赛</p>
-        <span>试试切换「全部」或「未开始」</span>
-      </div>
-    `
+  let panelHtml = ''
+  if (sectionTab === 'today') {
+    panelHtml = renderTodayPanel(board.matches, filter, ctx)
+  } else if (sectionTab === 'standings') {
+    panelHtml = renderStandingsPanel(ctx)
+  } else {
+    panelHtml = renderSchedulePanel(board, filter, stageFilter, ctx)
   }
 
   return `
+    ${sectionTabsHtml}
     ${filtersHtml}
-    ${standingsHtml}
-    ${todayHtml}
-    ${showToday ? `<header class="live-rest-head"><h3>全部赛程</h3><span>共 ${rest.length} 场</span></header>` : ''}
-    <div class="live-track">
-      ${rest.map((m) => renderLiveCard(m, false, false, ctx)).join('')}
-    </div>
+    <div class="live-tab-panel">${panelHtml}</div>
   `
 }
 
@@ -465,12 +503,15 @@ export function renderLiveSectionShell() {
 
 export type LiveMatchSelectHandler = (homeCn: string, awayCn: string, match?: LiveMatch) => void
 
-export function createLiveController(onSelect: LiveMatchSelectHandler) {
+export type LiveBoardUpdateHandler = (board: LiveScoreboard | null) => void
+
+export function createLiveController(onSelect: LiveMatchSelectHandler, onBoardUpdate?: LiveBoardUpdateHandler) {
   let timer: number | null = null
   let board: LiveScoreboard | null = null
   let error: string | null = null
   let loading = false
   let filter: LiveFilter = loadLiveFilter()
+  let sectionTab: LiveSectionTab = loadLiveSectionTab()
   let stageFilter: StageFilter = loadLiveStageFilter()
 
   function bindLiveCards() {
@@ -490,6 +531,13 @@ export function createLiveController(onSelect: LiveMatchSelectHandler) {
   }
 
   function bindFilters() {
+    document.querySelectorAll('[data-live-section-tab]').forEach((el) => {
+      el.addEventListener('click', () => {
+        sectionTab = (el as HTMLElement).dataset.liveSectionTab as LiveSectionTab
+        saveLiveSectionTab(sectionTab)
+        paint()
+      })
+    })
     document.querySelectorAll('[data-live-filter]').forEach((el) => {
       el.addEventListener('click', () => {
         filter = (el as HTMLElement).dataset.liveFilter as LiveFilter
@@ -532,7 +580,7 @@ export function createLiveController(onSelect: LiveMatchSelectHandler) {
     const el = document.getElementById('live-panel-content')
     if (!el) return
     const ctx = buildTournamentContext(board)
-    el.innerHTML = renderLivePanelContent(board, error, loading, filter, stageFilter, ctx)
+    el.innerHTML = renderLivePanelContent(board, error, loading, filter, stageFilter, sectionTab, ctx)
     updateMeta()
     bindLiveCards()
     bindFilters()
@@ -552,6 +600,7 @@ export function createLiveController(onSelect: LiveMatchSelectHandler) {
     } finally {
       loading = false
       paint()
+      onBoardUpdate?.(board)
     }
   }
 

@@ -1,4 +1,4 @@
-import type { ApiSettings, AppTheme, AppView, HistoryEntry, LiveFilter, ChatMessage } from './types'
+import type { ApiSettings, AppTheme, AppView, HistoryEntry, LiveFilter, LiveSectionTab, ChatMessage } from './types'
 import type { StageFilter } from './liveScore'
 import { DEFAULT_SETTINGS } from './types'
 
@@ -6,6 +6,7 @@ const SETTINGS_KEY = 'wc26-settings'
 const HISTORY_KEY = 'wc26-history'
 const THEME_KEY = 'wc26-theme'
 const LIVE_FILTER_KEY = 'wc26-live-filter'
+const LIVE_SECTION_TAB_KEY = 'wc26-live-section-tab'
 const LIVE_STAGE_FILTER_KEY = 'wc26-live-stage-filter'
 const VIEW_KEY = 'wc26-view'
 
@@ -71,6 +72,20 @@ export function loadLiveFilter(): LiveFilter {
 
 export function saveLiveFilter(filter: LiveFilter) {
   localStorage.setItem(LIVE_FILTER_KEY, filter)
+}
+
+export function loadLiveSectionTab(): LiveSectionTab {
+  try {
+    const raw = localStorage.getItem(LIVE_SECTION_TAB_KEY)
+    if (raw === 'today' || raw === 'schedule' || raw === 'standings') return raw
+  } catch {
+    /* ignore */
+  }
+  return 'today'
+}
+
+export function saveLiveSectionTab(tab: LiveSectionTab) {
+  localStorage.setItem(LIVE_SECTION_TAB_KEY, tab)
 }
 
 export function loadLiveStageFilter(): StageFilter {

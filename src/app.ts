@@ -1,7 +1,7 @@
 import { API_PROVIDER_PRESETS, validateApiSettings, type ApiProviderPreset } from './lib/chat-api-client'
 import { createChatController, renderChatShell } from './chatPanel'
 import { GROUPS, TIER_LABELS, findGroupByTeam, findTeam, groupFixtures } from './data'
-import { buildFeaturedMatches, hasTodayFeatured } from './featuredMatches'
+import { buildFeaturedMatches, getFeaturedFocusHeader, hasFocusFeatured } from './featuredMatches'
 import type { LiveMatch } from './liveScore'
 import { createLiveController, renderLiveSectionShell } from './livePanel'
 import { predictMatch } from './predict'
@@ -398,7 +398,8 @@ export function createApp(root: HTMLElement) {
     const fixtures = groupFixtures(state.activeGroup)
     const liveBoard = liveController.getBoard()
     const featuredMatches = buildFeaturedMatches(liveBoard)
-    const todayFeatured = hasTodayFeatured(liveBoard)
+    const focusHeader = getFeaturedFocusHeader(liveBoard)
+    const dynamicFeatured = hasFocusFeatured(liveBoard)
 
     root.innerHTML = `
       <div class="stadium-bg">
@@ -449,8 +450,8 @@ export function createApp(root: HTMLElement) {
         ${state.view === 'predict' ? `
         <section class="featured-section">
           <header class="featured-head">
-            <span class="featured-head-title">${todayFeatured ? '📅 今日焦点' : '⚽ 精选对阵'}</span>
-            ${todayFeatured ? '<span class="featured-head-sub">根据今日赛程自动更新</span>' : ''}
+            <span class="featured-head-title">${escapeHtml(focusHeader.title)}</span>
+            ${focusHeader.sub ? `<span class="featured-head-sub">${escapeHtml(focusHeader.sub)}</span>` : ''}
           </header>
           <div class="featured-row">
           ${featuredMatches
@@ -543,7 +544,7 @@ export function createApp(root: HTMLElement) {
               <div class="empty-arena">
                 <div class="trophy-icon">🏆</div>
                 <h3>选好对阵，一键神算</h3>
-                <p>从 12 个小组挑选两支球队，或点上方${todayFeatured ? '「今日焦点」' : '快捷入口'}一键预测。结果将以比分牌 + 胜平负概率可视化呈现。</p>
+                <p>从 12 个小组挑选两支球队，或点上方${dynamicFeatured ? '焦点赛程' : '快捷入口'}一键预测。结果将以比分牌 + 胜平负概率可视化呈现。</p>
               </div>
             `}
           </main>

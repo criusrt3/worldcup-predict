@@ -10,6 +10,7 @@ import {
   sortTodayMatches,
   STAGE_ORDER,
   TOURNAMENT_MATCHES_TOTAL,
+  type LiveMatchStatus,
 } from './liveScore'
 import {
   buildTournamentContext,
@@ -21,6 +22,25 @@ import {
 import { loadLiveFilter, loadLiveSectionTab, loadLiveStageFilter, loadLiveTeamFilter, saveLiveFilter, saveLiveSectionTab, saveLiveStageFilter, saveLiveTeamFilter } from './storage'
 import { filterMatchesByTeam, fuzzyMatchTeam, getTeamSearchEntries } from './teamFilter'
 import type { LiveFilter, LiveSectionTab } from './types'
+
+const SCHEDULE_PREVIEW_COUNT = 8
+
+function sortNearestSchedule(matches: LiveMatch[]): LiveMatch[] {
+  const rank: Record<LiveMatchStatus, number> = {
+    live: 0,
+    halftime: 0,
+    scheduled: 1,
+    finished: 2,
+  }
+  return [...matches].sort((a, b) => {
+    const dr = rank[a.status] - rank[b.status]
+    if (dr !== 0) return dr
+    if (a.status === 'finished' && b.status === 'finished') {
+      return new Date(b.startTimeIso).getTime() - new Date(a.startTimeIso).getTime()
+    }
+    return new Date(a.startTimeIso).getTime() - new Date(b.startTimeIso).getTime()
+  })
+}
 
 function escapeHtml(s: string) {
   return s
@@ -416,6 +436,7 @@ function renderSchedulePanel(
   stageFilter: StageFilter,
   ctx: TournamentContext,
   teamFilter: string,
+  scheduleExpanded: boolean,
 ): string {
   const base = filterMatchesByTeam(board.matches, teamFilter)
   const filtered = filterMatches(base, filter)
@@ -468,14 +489,24 @@ function renderSchedulePanel(
   const parts: string[] = []
   if (showTodaySection) parts.push(renderTodayBlock(today, todayLabel, ctx))
   if (rest.length) {
+    const sorted = sortNearestSchedule(rest)
+    const visible = scheduleExpanded ? sorted : sorted.slice(0, SCHEDULE_PREVIEW_COUNT)
+    const hiddenCount = Math.max(0, sorted.length - SCHEDULE_PREVIEW_COUNT)
     parts.push(`
       <header class="live-rest-head">
         <h3>${teamFilter ? `${escapeHtml(teamFilter)} · 其余场次` : '全部赛程'}</h3>
-        <span>共 ${rest.length} 场</span>
+        <span>共 ${sorted.length} 场${!scheduleExpanded && hiddenCount ? ` · 显示 ${visible.length} 场` : ''}</span>
       </header>
       <div class="live-track">
-        ${rest.map((m) => renderLiveCard(m, false, false, ctx)).join('')}
+        ${visible.map((m) => renderLiveCard(m, false, false, ctx)).join('')}
       </div>
+      ${
+        hiddenCount > 0
+          ? scheduleExpanded
+            ? `<div class="live-show-more-wrap"><button type="button" class="btn btn-ghost btn-sm live-show-more" id="live-show-less">收起</button></div>`
+            : `<div class="live-show-more-wrap"><button type="button" class="btn btn-ghost btn-sm live-show-more" id="live-show-more">显示更多（还有 ${hiddenCount} 场）</button></div>`
+          : ''
+      }
     `)
   }
   return parts.join('')
@@ -504,6 +535,7 @@ function renderLivePanelContent(
   ctx: TournamentContext,
   teamFilter: string,
   teamQuery: string,
+  scheduleExpanded: boolean,
 ) {
   if (loading && !board) {
     return `
@@ -539,7 +571,7 @@ function renderLivePanelContent(
   if (sectionTab === 'standings') {
     panelHtml = renderStandingsPanel(ctx)
   } else {
-    panelHtml = renderSchedulePanel(board, filter, stageFilter, ctx, teamFilter)
+    panelHtml = renderSchedulePanel(board, filter, stageFilter, ctx, teamFilter, scheduleExpanded)
   }
 
   return `
@@ -583,6 +615,7 @@ export function createLiveController(onSelect: LiveMatchSelectHandler, onBoardUp
   let stageFilter: StageFilter = loadLiveStageFilter()
   let teamFilter: string = loadLiveTeamFilter()
   let teamFilterQuery = ''
+  let scheduleExpanded = false
   let teamComboboxDocHandler: ((e: MouseEvent) => void) | null = null
 
   function bindTeamCombobox() {
@@ -638,6 +671,7 @@ export function createLiveController(onSelect: LiveMatchSelectHandler, onBoardUp
         e.preventDefault()
         teamFilter = (el as HTMLElement).dataset.team ?? ''
         teamFilterQuery = ''
+        scheduleExpanded = false
         saveLiveTeamFilter(teamFilter)
         close()
         paint()
@@ -647,6 +681,7 @@ export function createLiveController(onSelect: LiveMatchSelectHandler, onBoardUp
     clearBtn?.addEventListener('click', () => {
       teamFilter = ''
       teamFilterQuery = ''
+      scheduleExpanded = false
       saveLiveTeamFilter('')
       paint()
     })
@@ -678,6 +713,7 @@ export function createLiveController(onSelect: LiveMatchSelectHandler, onBoardUp
     document.querySelectorAll('[data-live-section-tab]').forEach((el) => {
       el.addEventListener('click', () => {
         sectionTab = (el as HTMLElement).dataset.liveSectionTab as LiveSectionTab
+        scheduleExpanded = false
         saveLiveSectionTab(sectionTab)
         paint()
       })
@@ -685,6 +721,7 @@ export function createLiveController(onSelect: LiveMatchSelectHandler, onBoardUp
     document.querySelectorAll('[data-live-filter]').forEach((el) => {
       el.addEventListener('click', () => {
         filter = (el as HTMLElement).dataset.liveFilter as LiveFilter
+        scheduleExpanded = false
         saveLiveFilter(filter)
         paint()
       })
@@ -692,9 +729,19 @@ export function createLiveController(onSelect: LiveMatchSelectHandler, onBoardUp
     document.querySelectorAll('[data-stage-filter]').forEach((el) => {
       el.addEventListener('click', () => {
         stageFilter = (el as HTMLElement).dataset.stageFilter as StageFilter
+        scheduleExpanded = false
         saveLiveStageFilter(stageFilter)
         paint()
       })
+    })
+    document.getElementById('live-show-more')?.addEventListener('click', () => {
+      scheduleExpanded = true
+      paint()
+    })
+    document.getElementById('live-show-less')?.addEventListener('click', () => {
+      scheduleExpanded = false
+      paint()
+      document.querySelector('.live-rest-head')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })
   }
 
@@ -724,7 +771,18 @@ export function createLiveController(onSelect: LiveMatchSelectHandler, onBoardUp
     const el = document.getElementById('live-panel-content')
     if (!el) return
     const ctx = buildTournamentContext(board)
-    el.innerHTML = renderLivePanelContent(board, error, loading, filter, stageFilter, sectionTab, ctx, teamFilter, teamFilterQuery)
+    el.innerHTML = renderLivePanelContent(
+      board,
+      error,
+      loading,
+      filter,
+      stageFilter,
+      sectionTab,
+      ctx,
+      teamFilter,
+      teamFilterQuery,
+      scheduleExpanded,
+    )
     updateMeta()
     bindLiveCards()
     bindFilters()

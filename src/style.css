@@ -1848,6 +1848,22 @@ html[data-theme='day'] .featured-chip--live .featured-time {
   padding-bottom: 0;
 }
 
+.live-rest-head span {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.live-show-more-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 12px 0 4px;
+}
+
+.live-show-more {
+  min-width: 180px;
+}
+
 .live-rest-head {
   display: flex;
   align-items: center;

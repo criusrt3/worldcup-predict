@@ -7,6 +7,7 @@ const HISTORY_KEY = 'wc26-history'
 const THEME_KEY = 'wc26-theme'
 const LIVE_FILTER_KEY = 'wc26-live-filter'
 const LIVE_SECTION_TAB_KEY = 'wc26-live-section-tab'
+const LIVE_TEAM_FILTER_KEY = 'wc26-live-team-filter'
 const LIVE_STAGE_FILTER_KEY = 'wc26-live-stage-filter'
 const VIEW_KEY = 'wc26-view'
 
@@ -77,15 +78,29 @@ export function saveLiveFilter(filter: LiveFilter) {
 export function loadLiveSectionTab(): LiveSectionTab {
   try {
     const raw = localStorage.getItem(LIVE_SECTION_TAB_KEY)
-    if (raw === 'today' || raw === 'schedule' || raw === 'standings') return raw
+    if (raw === 'schedule' || raw === 'standings') return raw
+    if (raw === 'today') return 'schedule'
   } catch {
     /* ignore */
   }
-  return 'today'
+  return 'schedule'
 }
 
 export function saveLiveSectionTab(tab: LiveSectionTab) {
   localStorage.setItem(LIVE_SECTION_TAB_KEY, tab)
+}
+
+export function loadLiveTeamFilter(): string {
+  try {
+    return localStorage.getItem(LIVE_TEAM_FILTER_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+export function saveLiveTeamFilter(team: string) {
+  if (team) localStorage.setItem(LIVE_TEAM_FILTER_KEY, team)
+  else localStorage.removeItem(LIVE_TEAM_FILTER_KEY)
 }
 
 export function loadLiveStageFilter(): StageFilter {

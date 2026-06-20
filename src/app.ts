@@ -552,7 +552,8 @@ export function createApp(root: HTMLElement) {
         </main>
 
         <footer class="footer-note">
-          仅供球迷娱乐讨论 · 基于 <a href="https://github.com/TradingAi666/worldcup2026-prediction-skill" target="_blank" rel="noreferrer">worldcup2026-prediction-skill</a>
+          <p>仅供球迷娱乐讨论 · 基于 <a href="https://github.com/TradingAi666/worldcup2026-prediction-skill" target="_blank" rel="noreferrer">worldcup2026-prediction-skill</a></p>
+          <a class="x-follow-link" href="https://x.com/oceansbaby_" target="_blank" rel="noopener noreferrer">喜欢请点个 𝕏 关注</a>
         </footer>
       </div>
 

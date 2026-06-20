@@ -75,8 +75,8 @@ export type AppTheme = 'night' | 'day'
 
 export type LiveFilter = 'all' | 'live' | 'finished' | 'scheduled'
 
-/** 实时世界杯主视图：今日 / 全部赛程 / 积分榜 */
-export type LiveSectionTab = 'today' | 'schedule' | 'standings'
+/** 实时世界杯主视图：赛程 / 积分榜 */
+export type LiveSectionTab = 'schedule' | 'standings'
 
 export type AppView = 'predict' | 'chat' | 'live'
 

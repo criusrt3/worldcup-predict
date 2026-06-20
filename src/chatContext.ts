@@ -1,4 +1,5 @@
 import { GROUPS } from './data'
+import { buildStandingsSnapshot, buildTournamentContext } from './groupStandings'
 import type { LiveMatch, LiveScoreboard } from './liveScore'
 
 export function buildLiveSnapshot(board: LiveScoreboard | null): string {
@@ -62,13 +63,14 @@ export function buildChatSystemPrompt(skill: string, liveBoard: LiveScoreboard |
 
 能力范围：
 - 48 队资料、分组、赛程阶段说明
-- 结合下方「实时赛况快照」解读比分、赛果、进行中比赛
-- 战术/实力分析、出线形势、关键球员（基于资料库）
+- 结合下方「实时赛况快照」与「小组积分榜」解读比分、出线形势、晋级压力
 - 可帮用户梳理预测思路，但单场结构化预测仍建议用预测台
 
 红线：严禁投注、赔率、下注建议。
 
 ${buildGroupsSnapshot()}
+
+${buildStandingsSnapshot(buildTournamentContext(liveBoard))}
 
 ${buildLiveSnapshot(liveBoard)}
 `

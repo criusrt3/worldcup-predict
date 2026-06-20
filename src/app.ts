@@ -1,6 +1,7 @@
 import { API_PROVIDER_PRESETS, validateApiSettings, type ApiProviderPreset } from './lib/chat-api-client'
 import { createChatController, renderChatShell } from './chatPanel'
 import { FEATURED_MATCHES, GROUPS, TIER_LABELS, findGroupByTeam, findTeam, groupFixtures } from './data'
+import type { LiveMatch } from './liveScore'
 import { createLiveController, renderLiveSectionShell } from './livePanel'
 import { predictMatch } from './predict'
 import { clearHistory, loadHistory, loadSettings, loadTheme, loadView, pushHistory, saveSettings, saveTheme, saveView } from './storage'
@@ -200,6 +201,11 @@ function renderHistory(entries: HistoryEntry[]) {
     .join('')
 }
 
+function toMatchStage(stage: string): MatchStage {
+  if (stage === '三四名决赛') return '决赛'
+  return STAGES.includes(stage as MatchStage) ? (stage as MatchStage) : '小组赛'
+}
+
 export function createApp(root: HTMLElement) {
   let settings = loadSettings()
   let history = loadHistory()
@@ -213,7 +219,7 @@ export function createApp(root: HTMLElement) {
 
   applyTheme(theme)
 
-  const liveController = createLiveController((homeCn, awayCn) => {
+  const liveController = createLiveController((homeCn, awayCn, match?: LiveMatch) => {
     const teamA = findTeam(homeCn)
     const teamB = findTeam(awayCn)
     if (!teamA || !teamB) return
@@ -221,7 +227,7 @@ export function createApp(root: HTMLElement) {
       view: 'predict',
       teamA,
       teamB,
-      stage: '小组赛',
+      stage: match ? toMatchStage(match.stage) : '小组赛',
       result: null,
       error: null,
       activeGroup: findGroupByTeam(homeCn) ?? state.activeGroup,
@@ -278,7 +284,13 @@ export function createApp(root: HTMLElement) {
 
     setState({ loading: true, error: null, result: null })
     try {
-      const result = await predictMatch(state.teamA, state.teamB, state.stage, settings)
+      const result = await predictMatch(
+        state.teamA,
+        state.teamB,
+        state.stage,
+        settings,
+        liveController.getBoard(),
+      )
       const entry: HistoryEntry = {
         id: uid(),
         time: new Date().toLocaleString('zh-CN'),

@@ -2607,3 +2607,197 @@ a {
   }
 }
 
+/* ── 积分榜 · 晋级标识 ── */
+
+.standings-panel {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+.standings-head {
+  margin-bottom: 12px;
+}
+
+.standings-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.standings-head p {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.standings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.standings-group {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.standings-group-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  font-size: 0.78rem;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+.standings-table th,
+.standings-table td {
+  padding: 5px 4px;
+  text-align: center;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.standings-table th:nth-child(2),
+.standings-table td:nth-child(2) {
+  text-align: left;
+  padding-left: 8px;
+  white-space: nowrap;
+}
+
+.standings-row--zone td:first-child {
+  color: #22c55e;
+  font-weight: 800;
+}
+
+.standings-row--third td:first-child {
+  color: #eab308;
+}
+
+.standings-row--out td:first-child {
+  color: var(--text-muted);
+}
+
+.qual-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.live-side-info .qual-badge {
+  display: block;
+  width: fit-content;
+}
+
+.qual--in {
+  background: rgba(34, 197, 94, 0.18);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.qual--good {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.qual--mid {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.qual--hot {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.qual--out {
+  background: rgba(100, 116, 139, 0.15);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+.qual--third {
+  background: rgba(234, 179, 8, 0.15);
+  color: #facc15;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+html[data-theme='day'] .qual--in {
+  color: #15803d;
+}
+
+html[data-theme='day'] .qual--hot {
+  color: #b91c1c;
+}
+
+html[data-theme='day'] .qual--good {
+  color: #1d4ed8;
+}
+
+.knockout-progress {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+
+.knockout-progress--pending p {
+  margin: 0;
+}
+
+.knockout-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.knockout-chip {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+}
+
+.live-advance-note {
+  margin-top: 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #4ade80;
+  text-align: center;
+}
+
+html[data-theme='day'] .live-advance-note {
+  color: #15803d;
+}
+
+@media (max-width: 640px) {
+  .standings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .standings-table {
+    font-size: 0.68rem;
+  }
+}
+

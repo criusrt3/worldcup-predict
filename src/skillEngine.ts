@@ -1,4 +1,10 @@
 import { GROUPS, TIER_LABELS, findGroupByTeam, findTeam } from './data'
+import {
+  buildTournamentContext,
+  situationPowerBonus,
+  situationalDrawAdjust,
+  type TeamStanding,
+} from './groupStandings'
 import { loadSkill } from './skillLoader'
 import {
   filterTodayMatches,
@@ -118,11 +124,17 @@ function recentFormScore(profile: TeamProfile | null, tier: TeamInfo['tier']): n
   return clamp(score, 35, 95)
 }
 
-function contextScore(team: TeamInfo, stage: MatchStage, profile: TeamProfile | null): number {
+function contextScore(
+  team: TeamInfo,
+  stage: MatchStage,
+  profile: TeamProfile | null,
+  standing?: TeamStanding,
+): number {
   let score = 52
   if (HOSTS.has(team.name)) score += 14
   if (stage !== '小组赛' && team.tier <= 2) score += 10
   if (profile?.summary.includes('大赛') && team.tier <= 2) score += 4
+  if (standing) score += situationPowerBonus(standing.qualStatus)
   return clamp(score, 40, 92)
 }
 
@@ -130,11 +142,16 @@ function composeStrength(profile: TeamProfile | null, tier: TeamInfo['tier']): n
   return profile ? clamp(tierStrength(tier) + (profile.section.includes('热门') ? 4 : 0), 40, 92) : tierStrength(tier)
 }
 
-function teamPower(team: TeamInfo, profile: TeamProfile | null, stage: MatchStage): number {
+function teamPower(
+  team: TeamInfo,
+  profile: TeamProfile | null,
+  stage: MatchStage,
+  standing?: TeamStanding,
+): number {
   const recent = recentFormScore(profile, team.tier)
   const strength = composeStrength(profile, team.tier)
   const h2h = 50
-  const context = contextScore(team, stage, profile)
+  const context = contextScore(team, stage, profile, standing)
   return recent * 0.4 + strength * 0.3 + h2h * 0.15 + context * 0.15
 }
 
@@ -149,8 +166,14 @@ function pickScore(powerA: number, powerB: number, stage: MatchStage): string {
   return `0-${clamp(1 + (diff < -18 ? 1 : 0), 1, 2)}`
 }
 
-function normalizeProbs(winA: number, winB: number, stage: MatchStage): [number, number, number] {
-  const drawBase = stage === '小组赛' ? 26 : 14
+function normalizeProbs(
+  winA: number,
+  winB: number,
+  stage: MatchStage,
+  stA?: TeamStanding,
+  stB?: TeamStanding,
+): [number, number, number] {
+  const drawBase = clamp((stage === '小组赛' ? 26 : 14) + situationalDrawAdjust(stage, stA, stB), 8, 32)
   const total = winA + winB + drawBase
   let a = Math.round((winA / total) * 100)
   let d = Math.round((drawBase / total) * 100)
@@ -186,16 +209,23 @@ function buildKeyFactors(
   pB: TeamProfile | null,
   stage: MatchStage,
   leader: TeamInfo,
+  stA?: TeamStanding,
+  stB?: TeamStanding,
 ): string[] {
   const factors: string[] = []
-  if (pA && pB) {
+  if (stA?.qualLabel && stB?.qualLabel && stage === '小组赛' && stA.groupId === stB.groupId) {
+    factors.push(`${teamA.name} ${stA.qualLabel}：${stA.qualHint}`)
+    factors.push(`${teamB.name} ${stB.qualLabel}：${stB.qualHint}`)
+  } else if (pA && pB) {
     factors.push(`${teamA.name}：${clipSummaryClause(pA.summary, 42)}`)
     factors.push(`${teamB.name}：${clipSummaryClause(pB.summary, 42)}`)
   } else {
     factors.push(`${TIER_LABELS[teamA.tier]} vs ${TIER_LABELS[teamB.tier]}`)
   }
-  if (stage === '小组赛') factors.push('小组赛平局权重较高')
-  else factors.push('淘汰赛平局指90分钟')
+  if (stage === '小组赛') {
+    const hot = [stA, stB].some((s) => s?.qualStatus === 'desperate' || s?.qualStatus === 'must_win')
+    factors.push(hot ? '出线压力下平局概率下调，抢分意愿更强' : '小组赛平局权重需结合出线形势')
+  } else factors.push('淘汰赛平局指90分钟')
   if (HOSTS.has(leader.name)) factors.push('东道主情境加成')
   else if (leader.tier <= 2) factors.push('大赛经验与阵容厚度')
   else factors.push('冷门空间仍不可忽视')
@@ -211,6 +241,8 @@ function buildAnalysis(
   leader: TeamInfo,
   winA: number,
   winB: number,
+  stA?: TeamStanding,
+  stB?: TeamStanding,
 ): string {
   const leadProb = leader.name === teamA.name ? winA : winB
   const lp = leader.name === teamA.name ? pA : pB
@@ -220,10 +252,14 @@ function buildAnalysis(
   const trailHint = clipSummaryClause(
     tp?.summary ?? `${TIER_LABELS[leader.name === teamA.name ? teamB.tier : teamA.tier]}成色`,
   )
-  const stageNote =
+  let stageNote =
     stage === '小组赛'
       ? '小组赛拿分压力与平局选项都要纳入。'
       : '淘汰赛节奏更保守，平局后加时点球需看大赛经验。'
+  if (stage === '小组赛' && stA && stB && stA.groupId === stB.groupId) {
+    const bits = [stA.qualHint, stB.qualHint].filter(Boolean)
+    if (bits.length) stageNote = bits.join(' ')
+  }
   return cleanAnalysisText(
     `【本地神算·Skill资料库】${stage} ${teamA.name} vs ${teamB.name}：${leadHint}；${trailName}方面${trailHint}。综合近期状态（40%）、硬实力（30%）、交锋（15%）与情境（15%），略倾向 ${leader.name}（约 ${leadProb}%）。${stageNote}仅供球迷讨论，非投注建议。`,
   )
@@ -233,15 +269,19 @@ export async function localPredict(
   teamA: TeamInfo,
   teamB: TeamInfo,
   stage: MatchStage,
+  liveBoard: LiveScoreboard | null = null,
 ): Promise<PredictionResult> {
   await ensureKnowledge()
   await new Promise((r) => setTimeout(r, 700 + Math.random() * 400))
 
+  const ctx = buildTournamentContext(liveBoard)
+  const stA = ctx.byTeam.get(teamA.name)
+  const stB = ctx.byTeam.get(teamB.name)
   const pA = profilesCache!.get(teamA.name) ?? null
   const pB = profilesCache!.get(teamB.name) ?? null
-  const wA = teamPower(teamA, pA, stage)
-  const wB = teamPower(teamB, pB, stage)
-  const [winA, draw, winB] = normalizeProbs(wA, wB, stage)
+  const wA = teamPower(teamA, pA, stage, stA)
+  const wB = teamPower(teamB, pB, stage, stB)
+  const [winA, draw, winB] = normalizeProbs(wA, wB, stage, stA, stB)
   const leader = winA >= winB ? teamA : teamB
 
   const result: PredictionResult = {
@@ -250,8 +290,8 @@ export async function localPredict(
     teamB: { name: teamB.name, winProb: winB },
     predictedScore: pickScore(wA, wB, stage),
     confidence: Math.abs(winA - winB) > 22 ? '高' : Math.abs(winA - winB) > 10 ? '中' : '低',
-    keyFactors: buildKeyFactors(teamA, teamB, pA, pB, stage, leader),
-    analysis: buildAnalysis(teamA, teamB, pA, pB, stage, leader, winA, winB),
+    keyFactors: buildKeyFactors(teamA, teamB, pA, pB, stage, leader, stA, stB),
+    analysis: buildAnalysis(teamA, teamB, pA, pB, stage, leader, winA, winB, stA, stB),
     playersToWatch: [
       { team: teamA.name, ...extractPlayer(pA?.summary ?? '', teamA.name) },
       { team: teamB.name, ...extractPlayer(pB?.summary ?? '', teamB.name) },
@@ -338,7 +378,7 @@ export async function localChatReply(question: string, board: LiveScoreboard | n
   const teams = findTeamsInText(q)
   if (teams.length >= 2 && /预测|谁会赢|胜平负|分析|怎么样|谁能/.test(q)) {
     const [a, b] = teams
-    const r = await localPredict(a, b, '小组赛')
+    const r = await localPredict(a, b, '小组赛', board)
     return `**${a.name} vs ${b.name}**（本地 Skill 分析）\n\n${r.analysis}\n\n胜平负：${a.name} ${r.teamA.winProb}% · 平 ${r.draw}% · ${b.name} ${r.teamB.winProb}%\n预测比分：**${r.predictedScore}** · 置信 ${r.confidence}`
   }
 

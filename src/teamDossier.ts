@@ -110,7 +110,6 @@ function briefSummary(text: string, max = 56): string {
 }
 
 export function buildDossierFromProfile(profile: TeamProfile, tier: 1 | 2 | 3 | 4): TeamDossier {
-  const team = GROUPS.flatMap((g) => g.teams).find((t) => t.name === profile.name)
   return {
     name: profile.name,
     fifaRank: FIFA_WORLD_RANK[profile.name] ?? 50,
